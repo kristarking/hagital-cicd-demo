@@ -12,4 +12,5 @@ jobs:
           echo "Hello from Hagital!"
           echo "Live troubleshooting script"
           echo "This is a Devops class"
+          echo "And its in 2026"
       
