@@ -10,6 +10,9 @@ jobs:
       - name: say hello
         run: |
           echo "Hello from Hagital!"
+          echo "adding value to cloud"
+          echo "Getting cloud energy"
+          echo "And Automating it"
           
         
       
