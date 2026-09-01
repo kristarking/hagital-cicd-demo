@@ -8,8 +8,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: say hello
-        run: |
-          echo "Hello from Hagital!"
-          echo "Live troubleshooting script"
-          echo "This is a Devops class"
+        run: echo "Hello from Hagital!"
+             echo "adding value to cloud"
+             echo "Getting cloud energy"
+          
+    
       
