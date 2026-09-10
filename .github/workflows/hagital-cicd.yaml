@@ -1,18 +1,80 @@
+name: Hagital VM Deploy
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
-  build:
+  provision:
     runs-on: ubuntu-latest
+    environment: hagital-production
+    outputs:
+      vm_ip: ${{ steps.tf_output.outputs.vm_ip }}
+
     steps:
       - uses: actions/checkout@v4
-      - name: say hello
+
+      - uses: azure/login@v2
+        with:
+          creds: ${{ secrets.HAGITAL_AZURE_CREDENTIALS }}
+
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Prepare SSH public key for terraform
         run: |
-          echo "Hello from Hagital!"
-          echo "adding value to cloud"
-          echo "Getting cloud energy"
-          echo "And Automating it"
-          
-        
-      
+          mkdir -p ~/.ssh
+          echo "${{ secrets.HAGITAL_SSH_PUBLIC_KEY }}" > ~/.ssh/id_rsa.pub
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Plan
+        run: |
+          terraform plan \
+            -var="subscription_id=${{ secrets.HAGITAL_SUBSCRIPTION_ID }}" \
+            -out=hagital.tfplan
+
+      - name: Terraform Apply
+        run: terraform apply hagital.tfplan
+
+      - name: Get VM Public Ip
+        id: tf_output
+        run: echo "vm_ip=$(terraform output -raw vm_public_ip)" >> "$GITHUB_OUTPUT"
+
+  configure:
+    needs: provision
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prepare SSH Private Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.HAGITAL_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+      - name: Wait for SSH to become available
+        run: |
+          for i in $(seq 1 10); do
+            if ssh -o StrictHostKeyChecking=no -o BatchMode=yes -i ~/.ssh/id_rsa \
+              adminuser@${{ needs.provision.outputs.vm_ip }} exit; then
+              echo "VM is ready."
+              break
+            fi
+            echo "VM not ready, waiting 15 seconds..."
+            sleep 15
+          done
+
+      - name: Install nginx and configure the website
+        run: |
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa adminuser@${{ needs.provision.outputs.vm_ip }}
+            sudo apt update && sudo apt upgrade -y
+            sudo apt install nginx git -y
+            cd /var/www/html
+            sudo rm -f index.nginx-debian.html
+            sudo git clone https://github.com/MettaSurendhar/Omnifood.git .
+            sudo chown -R www-data:www-data /var/www/html
+            sudo systemctl restart nginx
+
+      - name: Show the website is live
+        run: |
+          echo "Omni-food website is live!" >> $GITHUB_STEP_SUMMARY
+          echo "Visit: http://${{needs.provision.outputs.vm_ip}}" >> $GITHUB_STEP_SUMMARY
