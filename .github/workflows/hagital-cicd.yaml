@@ -1,7 +1,8 @@
-name: Hagital Server Deploy
+name: Hagital VM Deploy
+
 on:
   push:
-    branches: [ main ]
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
@@ -10,7 +11,6 @@ jobs:
     environment: hagital-production
     outputs:
       vm_ip: ${{ steps.tf_output.outputs.vm_ip }}
-
     steps:
       - uses: actions/checkout@v4
 
@@ -20,7 +20,7 @@ jobs:
 
       - uses: hashicorp/setup-terraform@v3
 
-      - name: Prepare SSH public key for terraform
+      - name: Prepare SSH public key for Terraform
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.HAGITAL_SSH_PUBLIC_KEY }}" > ~/.ssh/id_rsa.pub
@@ -37,7 +37,7 @@ jobs:
       - name: Terraform Apply
         run: terraform apply hagital.tfplan
 
-      - name: Get VM Public Ip
+      - name: Get VM public IP
         id: tf_output
         run: echo "vm_ip=$(terraform output -raw vm_public_ip)" >> "$GITHUB_OUTPUT"
 
@@ -45,7 +45,7 @@ jobs:
     needs: provision
     runs-on: ubuntu-latest
     steps:
-      - name: Prepare SSH Private Key
+      - name: Prepare SSH private key
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.HAGITAL_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
@@ -55,25 +55,24 @@ jobs:
         run: |
           for i in $(seq 1 10); do
             ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa \
-              adminuser@${{ needs.provision.outputs.vm_ip }} echo ready && break
-              echo "VM not ready, waiting 15 seconds..."              
+              azureuser@${{ needs.provision.outputs.vm_ip }} echo ready && break
+            echo "VM not ready yet, waiting 15 seconds..."
+            sleep 15
           done
 
-      - name: Install nginx and configure the website
+      - name: Install and configure the website
         run: |
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa adminuser@${{ needs.provision.outputs.vm_ip }} "
-            export DEBIAN_FRONTEND=noninteractive
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa azureuser@${{ needs.provision.outputs.vm_ip }} '
             sudo apt update && sudo apt upgrade -y
             sudo apt install nginx git -y
             cd /var/www/html
-            sudo rm -rf /var/www/html/* /var/www/html/.* 2>/dev/null || true
-            sudo git clone https://github.com/MettaSurendhar/Omnifood.git /var/www/html/
+            sudo rm -f index.nginx-debian.html
+            sudo git clone https://github.com/MettaSurendhar/Omnifood.git .
             sudo chown -R www-data:www-data /var/www/html
             sudo systemctl restart nginx
-          "
+          '
 
-      - name: Show the website is live
+      - name: Show the live website URL
         run: |
-          echo "VM IP Address is: ${{ needs.provision.outputs.vm_ip }}"
-          echo "Omni-food website is live!" >> $GITHUB_STEP_SUMMARY
-          echo "Visit: http://${{needs.provision.outputs.vm_ip}}" >> $GITHUB_STEP_SUMMARY
+          echo "hagital website is live!" >> $GITHUB_STEP_SUMMARY
+          echo "Visit: http://${{ needs.provision.outputs.vm_ip }}" >> $GITHUB_STEP_SUMMARY
