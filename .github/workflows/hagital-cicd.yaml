@@ -65,8 +65,8 @@ jobs:
             sudo apt update && sudo apt upgrade -y
             sudo apt install nginx git -y
             cd /var/www/html
-            sudo rm -rf /var/www/html/* /var/www/html/.* 2>/dev/null || true
-            sudo git clone https://github.com/MettaSurendhar/Omnifood.git /var/www/html/
+            sudo rm -f index.nginx-debian.html
+            sudo git clone https://github.com/MettaSurendhar/Omnifood.git .
             sudo chown -R www-data:www-data /var/www/html
             sudo systemctl restart nginx
           "
