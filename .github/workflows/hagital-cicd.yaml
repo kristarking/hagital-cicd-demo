@@ -1,4 +1,4 @@
-name: Hagital VM Deploy
+name: Hagital Server Deploy
 on:
   push:
     branches: [ main ]
