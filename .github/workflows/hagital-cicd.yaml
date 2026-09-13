@@ -74,5 +74,6 @@ jobs:
 
       - name: Show the website is live
         run: |
+          echo "VM IP Address is: ${{ needs.provision.outputs.vm_ip }}"
           echo "Omni-food website is live!" >> $GITHUB_STEP_SUMMARY
           echo "Visit: http://${{needs.provision.outputs.vm_ip}}" >> $GITHUB_STEP_SUMMARY
