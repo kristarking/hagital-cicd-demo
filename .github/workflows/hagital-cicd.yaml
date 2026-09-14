@@ -1,4 +1,4 @@
-name: Hagital Server Deploy
+name: Hagital VM Deploy
 on:
   push:
     branches: [ main ]
@@ -56,18 +56,29 @@ jobs:
           for i in $(seq 1 10); do
             ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa \
               adminuser@${{ needs.provision.outputs.vm_ip }} echo ready && break
-              echo "VM not ready, waiting 15 seconds..."              
+            echo "VM not ready, waiting 15 seconds..."
+            sleep 15
           done
 
       - name: Install nginx and configure the website
         run: |
           ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa adminuser@${{ needs.provision.outputs.vm_ip }} "
-            sudo apt update && sudo apt upgrade -y
-            sudo apt install nginx git -y
+            set -e
+            export DEBIAN_FRONTEND=noninteractive
+            sudo cloud-init status --wait || true
+            while sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
+              echo 'Waiting for apt/dpkg lock...'
+              sleep 5
+            done
+            
+            sudo apt-get update
+            sudo apt-get install -y nginx git
             cd /var/www/html
-            sudo rm -rf /var/www/html/* /var/www/html/.* 2>/dev/null || true
+            sudo rm -rf /var/www/html/*
+            sudo rm -rf /var/www/html/.* 2>/dev/null || true
             sudo git clone https://github.com/MettaSurendhar/Omnifood.git /var/www/html/
             sudo chown -R www-data:www-data /var/www/html
+            sudo chmod -R 755 /var/www/html
             sudo systemctl restart nginx
           "
 
